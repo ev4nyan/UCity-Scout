@@ -1,7 +1,7 @@
 README:
 -----
-Philly Public API Links:
-
+**Philly Public API Links:
+**
 Licenses and Inspections Code Violations: you already have this one! it's still the #1 most important dataset. the holy grail.
 https://opendataphilly.org/datasets/licenses-and-inspections-code-violations/
 
@@ -30,3 +30,9 @@ https://opendataphilly.org/datasets/building-demolitions/
 
 Zillow (Phila. only): as i said before, this is how you'll eventually get the actual, live rental listings. this is what turns your intelligence tool into a real search engine.
 https://opendataphilly.org/datasets/zillow-phila-only/
+
+
+**API dependencies**
+```
+pip install "psycopg[binary]"
+pip install python-dotenv```
