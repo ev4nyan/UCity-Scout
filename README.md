@@ -34,4 +34,5 @@ https://opendataphilly.org/datasets/zillow-phila-only/
 **API dependencies**
 ```
 pip install "psycopg[binary]"
-pip install python-dotenv```
+pip install python-dotenv
+```
