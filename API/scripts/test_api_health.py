@@ -3,6 +3,9 @@ import json
 
 # i added a limit so you don't accidentally download the whole city!
 # seriously, don't remove the "LIMIT 5" for now!!!
+
+
+# code violations api:
 api_url = "https://phl.carto.com/api/v2/sql?q=SELECT * FROM violations LIMIT 5"
 
 print("okay, trying to get the data now...")
