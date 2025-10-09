@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 
 
 env_path = '../config/.env'
-
 # This loads the variables from your .env file
 load_dotenv(env_path)
 
