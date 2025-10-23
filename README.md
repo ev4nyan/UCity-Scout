@@ -33,4 +33,5 @@ pip install "psycopg[binary]"
 pip install python-dotenv
 pip install flask
 pip install flask_cors
+pip install shapely
 ```
