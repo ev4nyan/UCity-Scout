@@ -5,7 +5,7 @@ BASE_API_URL = "https://phl.carto.com/api/v2/sql"
 
 # We are spying on the 'business_licenses' table this time!
 # Let's see what secrets it's hiding...
-spy_query = "SELECT * FROM business_licenses LIMIT 5"
+spy_query = "SELECT * FROM business_licenses WHERE opa_account_num LIKE '881817745' LIMIT 5"
 
 print("🕵️‍♀️ deploying spy script to investigate the business licenses data...")
 print("(this time i'll be more patient, i guess... hmph!)")
