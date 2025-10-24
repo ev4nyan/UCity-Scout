@@ -5,7 +5,7 @@ BASE_API_URL = "https://phl.carto.com/api/v2/sql"
 
 # We are removing the WHERE clause to just peek at the first 5 records
 # This lets us see ALL the columns without any filters.
-spy_query = "SELECT * FROM permits LIMIT 1"
+spy_query = "SELECT * FROM permits WHERE address ILIKE '4012-30%' LIMIT 1"
 
 print("🕵️‍♀️ going undercover to spy on the property data schema...")
 

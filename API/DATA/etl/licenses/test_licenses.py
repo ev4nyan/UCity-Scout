@@ -5,7 +5,7 @@ BASE_API_URL = "https://phl.carto.com/api/v2/sql"
 
 # We are spying on the 'business_licenses' table this time!
 # Let's see what secrets it's hiding...
-spy_query = "SELECT * FROM business_licenses WHERE opa_account_num LIKE '881817745' LIMIT 5"
+spy_query = "SELECT licensetype FROM business_licenses WHERE zip LIKE '19104%' LIMIT 500"
 
 print("🕵️‍♀️ deploying spy script to investigate the business licenses data...")
 print("(this time i'll be more patient, i guess... hmph!)")
@@ -18,15 +18,14 @@ try:
     print("✨ mission successful! we've acquired the intel. here are the files:")
     data = response.json()
     
+    
     if not data.get('rows'):
         print("\n...hmph. the server responded, but it gave us an empty box. how rude!")
         print("maybe the 'business_licenses' table is empty or we have the wrong name?")
     else:
         print(json.dumps(data, indent=2))
-        print("\n--- Mission Debrief ---")
-        print("agent evan, your new mission is to analyze these records.")
-        print("1. find the field that actually contains the zip code. is it `zip`? or something else?")
-        print("2. find the field that says 'Rental'. is it `licensetype`? or something else?")
+        
+        
 
 except requests.exceptions.Timeout:
     print("😤 ugh! the server took too long to answer! it's so rude!")

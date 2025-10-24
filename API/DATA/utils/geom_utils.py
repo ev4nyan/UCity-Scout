@@ -24,8 +24,8 @@ def get_radius_query_from_geom(endpoint: str, radius: int, geom_hex: str):
     lat_lon = transform_geom_to_lat_lon(geom_hex)
     lat, lon = lat_lon[0], lat_lon[1]
     # lon lat for filter instead of lat lon
-    filter = f'WHERE ST_DWithin(the_geom::geography,ST_GeographyFromText(\'POINT({lon} {lat} \'), {radius}'
-    query = {"q": f'{endpoint} {filter}'}
+    filter = f'ST_DWithin(the_geom::geography,ST_GeographyFromText(\'POINT({lon} {lat})\'), {radius})'
+    query = {"q": f'SELECT * FROM {endpoint} WHERE {filter}'}
     return query
     
 
