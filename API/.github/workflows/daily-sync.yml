@@ -31,9 +31,38 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    # Step 4: THE MOST IMPORTANT PART! RUN THE SCRIPT!
-    # It uses a secret variable so your database password is safe! Don't you dare forget this!
-    - name: Run Student Intelligence ETL
+    # Step 4: Run each ETL in dependency order, then build the aggregated intelligence table.
+    - name: Sync Properties
       env:
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      run: python API/etl/property_intelligence/etl_property_intelligence.py # Make sure this is the right filename!
+      run: python API/DATA/etl/properties/etl_properties.py
+
+    - name: Sync Violations
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: python API/DATA/etl/violations/etl_violations.py
+
+    - name: Sync Permits
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: python API/DATA/etl/permits/etl_permits.py
+
+    - name: Sync Rental Licenses
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: python API/DATA/etl/licenses/etl_licenses.py
+
+    - name: Sync Tax Delinquencies
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: python API/DATA/etl/tax/etl_tax.py
+
+    - name: Sync Crime Incidents
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: python API/DATA/etl/crime/etl_crime.py
+
+    - name: Build Property Intelligence
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: python API/DATA/etl/property_intelligence/etl_property_intelligence.py

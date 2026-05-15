@@ -55,7 +55,9 @@ try:
                     year_built TEXT,
                     year_built_estimate TEXT,
                     zip_code TEXT,
-                    building_code_description_new TEXT
+                    building_code_description_new TEXT,
+                    lat NUMERIC,
+                    lng NUMERIC
                 );
             """)
             print("clearing old property data for a fresh sync...")
@@ -85,7 +87,7 @@ try:
             with tqdm(total=total_records, desc="Syncing Properties", unit=" property") as progress_bar:
                 while total_inserted_count < total_records:
                     offset = page_num * RECORDS_PER_PAGE
-                    query = f"SELECT assessment_date, building_code_description, category_code_description, central_air, exterior_condition, general_construction, house_extension, house_number, interior_condition, location, mailing_address_1, mailing_address_2, mailing_city_state, mailing_street, mailing_zip, number_of_bathrooms, number_of_bedrooms, number_of_rooms, number_stories, owner_1, owner_2, parcel_number, quality_grade, street_designation, street_name, year_built, year_built_estimate, zip_code, building_code_description_new FROM opa_properties_public WHERE trim(zip_code) LIKE '{UCITY_ZIP_CODE}%' ORDER BY parcel_number LIMIT {RECORDS_PER_PAGE} OFFSET {offset}"
+                    query = f"SELECT assessment_date, building_code_description, category_code_description, central_air, exterior_condition, general_construction, house_extension, house_number, interior_condition, location, mailing_address_1, mailing_address_2, mailing_city_state, mailing_street, mailing_zip, number_of_bathrooms, number_of_bedrooms, number_of_rooms, number_stories, owner_1, owner_2, parcel_number, quality_grade, street_designation, street_name, year_built, year_built_estimate, zip_code, building_code_description_new, lat, lng FROM opa_properties_public WHERE trim(zip_code) LIKE '{UCITY_ZIP_CODE}%' ORDER BY parcel_number LIMIT {RECORDS_PER_PAGE} OFFSET {offset}"
                     
                     response = requests.get(BASE_API_URL, params={'q': query}, timeout=60)
 
@@ -113,9 +115,9 @@ try:
                                         number_of_rooms, number_stories, owner_1, owner_2,
                                         quality_grade, street_designation, street_name,
                                         year_built, year_built_estimate, zip_code,
-                                        building_code_description_new
+                                        building_code_description_new, lat, lng
                                     )
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                     ON CONFLICT (parcel_number) DO NOTHING;
                                 """, (
                                     prop.get('parcel_number'),
@@ -146,7 +148,9 @@ try:
                                     prop.get('year_built'),
                                     prop.get('year_built_estimate'),
                                     prop.get('zip_code'),
-                                    prop.get('building_code_description_new')
+                                    prop.get('building_code_description_new'),
+                                    prop.get('lat'),
+                                    prop.get('lng')
                                 ))
                                 page_insert_count += cur.rowcount
                             except Exception as insert_error:
