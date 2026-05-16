@@ -227,6 +227,7 @@ def run_etl():
                         CASE WHEN has_tax_delinquency             THEN 'TAX_DELINQUENT'    ELSE NULL END,
                         CASE WHEN tax_sheriff_sale                THEN 'SHERIFF_SALE'      ELSE NULL END,
                         CASE WHEN nearby_crime_count >= 15        THEN 'HIGH_CRIME_AREA'   ELSE NULL END
+                        CASE WHEN tax_sheriff_sale                THEN 'SHERIFF_SALE'      ELSE NULL END
                     ], NULL) AS risk_flags,
                     ARRAY_REMOVE(ARRAY[
                         CASE WHEN open_violation_count > 2        THEN 'Multiple open code violations'          ELSE NULL END,
