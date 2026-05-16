@@ -18,51 +18,50 @@ RECORDS_PER_PAGE = 500
 UCITY_ZIP_CODE = '19104'
 
 # --- 2. DATABASE CONNECTION & SETUP ---
-print("connecting to the database to sync permits...")
+print("connecting to the database to sync real estate tax delinquencies...")
 try:
     with psycopg.connect(DB_CONNECTION_STRING) as conn:
         print("🎉 connection successful!")
         with conn.cursor() as cur:
-            
-            print("making sure the 'permits' table exists...")
+
+            print("making sure the 'tax_balances' table exists...")
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS permits (
-                    permit_number TEXT PRIMARY KEY,
-                    permit_type TEXT,
-                    permit_description TEXT,
-                    commercial_or_residential TEXT,
-                    type_of_work TEXT,
-                    approved_scope_of_work TEXT,
-                    permit_issue_date TIMESTAMP WITH TIME ZONE,
-                    status TEXT,
-                    applicant_type TEXT,
-                    contractor_name TEXT,
-                    contractor_address_1 TEXT,
-                    contractor_address_2 TEXT,
-                    opa_account_num TEXT,
-                    address TEXT,
-                    unit_type TEXT,
-                    unit_num TEXT,
-                    zip TEXT,
-                    opa_owner TEXT,
-                    permit_completed_date TIMESTAMP WITH TIME ZONE
+                CREATE TABLE IF NOT EXISTS tax_balances (
+                    opa_number TEXT PRIMARY KEY,
+                    owner TEXT,
+                    street_address TEXT,
+                    zip_code TEXT,
+                    principal_due NUMERIC,
+                    penalty_due NUMERIC,
+                    interest_due NUMERIC,
+                    other_charges_due NUMERIC,
+                    total_due NUMERIC,
+                    num_years_owed INTEGER,
+                    most_recent_year_owed INTEGER,
+                    oldest_year_owed INTEGER,
+                    most_recent_payment_date TIMESTAMP WITH TIME ZONE,
+                    is_actionable BOOLEAN,
+                    payment_agreement BOOLEAN,
+                    sheriff_sale TEXT,
+                    bankruptcy BOOLEAN,
+                    building_category TEXT
                 );
             """)
-            print("clearing old permit data for a fresh sync...")
-            cur.execute("TRUNCATE TABLE permits;")
-            print("table is ready for UCity permit data!")
+            print("clearing old tax data for a fresh sync...")
+            cur.execute("TRUNCATE TABLE tax_balances;")
+            print("table is ready for UCity tax delinquency data!")
 
             # --- 3. GET TOTAL COUNT FOR PROGRESS BAR ---
-            print("let's see how many permits are in University City...")
-            count_query = f"SELECT count(*) FROM permits WHERE trim(zip) LIKE '{UCITY_ZIP_CODE}%'"
+            print("let's see how many tax delinquencies are in University City...")
+            count_query = f"SELECT count(*) FROM real_estate_tax_delinquencies WHERE trim(zip_code) LIKE '{UCITY_ZIP_CODE}%'"
             count_response = requests.get(BASE_API_URL, params={'q': count_query})
-            
+
             if count_response.status_code == 200:
                 total_records = count_response.json()['rows'][0]['count']
                 if total_records == 0:
                     print("...hmph. the api still says zero records match. are we sure this data exists for ucity? how rude!")
                     exit()
-                print(f"found {total_records} total permits for University City. starting sync...")
+                print(f"found {total_records} total tax delinquencies for University City. starting sync...")
             else:
                 print("ugh, couldn't get the total count from the api. can't proceed!")
                 print(f"status: {count_response.status_code}, text: {count_response.text}")
@@ -71,83 +70,82 @@ try:
             # --- 4. PAGINATION & ETL LOOP ---
             page_num = 0
             total_inserted_count = 0
-            
-            with tqdm(total=total_records, desc="Syncing Permits", unit=" permit") as progress_bar:
+
+            with tqdm(total=total_records, desc="Syncing Tax Delinquencies", unit=" record") as progress_bar:
                 while total_inserted_count < total_records:
                     offset = page_num * RECORDS_PER_PAGE
-                    query = f"SELECT permitnumber, permittype, permitdescription, commercialorresidential, typeofwork, approvedscopeofwork, permitissuedate, status, applicanttype, contractorname, contractoraddress1, contractoraddress2, opa_account_num, address, unit_type, unit_num, zip, opa_owner, permitcompleteddate FROM permits WHERE trim(zip) LIKE '{UCITY_ZIP_CODE}%' ORDER BY permitnumber LIMIT {RECORDS_PER_PAGE} OFFSET {offset}"
-                    
+                    query = f"SELECT opa_number, owner, street_address, zip_code, principal_due, penalty_due, interest_due, other_charges_due, total_due, num_years_owed, most_recent_year_owed, oldest_year_owed, most_recent_payment_date, is_actionable, payment_agreement, sheriff_sale, bankruptcy, building_category FROM real_estate_tax_delinquencies WHERE trim(zip_code) LIKE '{UCITY_ZIP_CODE}%' ORDER BY opa_number LIMIT {RECORDS_PER_PAGE} OFFSET {offset}"
+
                     response = requests.get(BASE_API_URL, params={'q': query}, timeout=60)
 
                     if response.status_code == 200:
                         data = response.json()
-                        permits = data.get('rows', [])
+                        tax_records = data.get('rows', [])
 
-                        if not permits:
+                        if not tax_records:
                             break
-                        
+
                         page_insert_count = 0
-                        for pmt in permits:
-                            if not pmt.get('permitnumber'):
+                        for tax in tax_records:
+                            if not tax.get('opa_number'):
                                 continue
-                            
+
                             try:
                                 cur.execute("""
-                                    INSERT INTO permits (
-                                        permit_number, permit_type, permit_description,
-                                        commercial_or_residential, type_of_work,
-                                        approved_scope_of_work, permit_issue_date,
-                                        status, applicant_type, contractor_name,
-                                        contractor_address_1, contractor_address_2,
-                                        opa_account_num, address, unit_type, unit_num,
-                                        zip, opa_owner, permit_completed_date
+                                    INSERT INTO tax_balances (
+                                        opa_number, owner, street_address, zip_code,
+                                        principal_due, penalty_due, interest_due,
+                                        other_charges_due, total_due, num_years_owed,
+                                        most_recent_year_owed, oldest_year_owed,
+                                        most_recent_payment_date, is_actionable,
+                                        payment_agreement, sheriff_sale, bankruptcy,
+                                        building_category
                                     )
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                    ON CONFLICT (permit_number) DO NOTHING;
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    ON CONFLICT (opa_number) DO NOTHING;
                                 """, (
-                                    pmt.get('permitnumber'),
-                                    pmt.get('permittype'),
-                                    pmt.get('permitdescription'),
-                                    pmt.get('commercialorresidential'),
-                                    pmt.get('typeofwork'),
-                                    pmt.get('approvedscopeofwork'),
-                                    pmt.get('permitissuedate'),
-                                    pmt.get('status'),
-                                    pmt.get('applicanttype'),
-                                    pmt.get('contractorname'),
-                                    pmt.get('contractoraddress1'),
-                                    pmt.get('contractoraddress2'),
-                                    pmt.get('opa_account_num'),
-                                    pmt.get('address'),
-                                    pmt.get('unit_type'),
-                                    pmt.get('unit_num'),
-                                    pmt.get('zip'),
-                                    pmt.get('opa_owner'),
-                                    pmt.get('permitcompleteddate')
+                                    tax.get('opa_number'),
+                                    tax.get('owner'),
+                                    tax.get('street_address'),
+                                    tax.get('zip_code'),
+                                    tax.get('principal_due'),
+                                    tax.get('penalty_due'),
+                                    tax.get('interest_due'),
+                                    tax.get('other_charges_due'),
+                                    tax.get('total_due'),
+                                    tax.get('num_years_owed'),
+                                    tax.get('most_recent_year_owed'),
+                                    tax.get('oldest_year_owed'),
+                                    tax.get('most_recent_payment_date') or None,
+                                    tax.get('is_actionable', '').lower() == 'true' if tax.get('is_actionable') else False,
+                                    tax.get('payment_agreement', '').lower() == 'true' if tax.get('payment_agreement') else False,
+                                    tax.get('sheriff_sale'),
+                                    tax.get('bankruptcy', '').lower() == 'true' if tax.get('bankruptcy') else False,
+                                    tax.get('building_category')
                                 ))
                                 page_insert_count += cur.rowcount
                             except Exception as insert_error:
                                 print("\n😤 HEY! The database rejected this record! Here's why:")
                                 print("Error:", insert_error)
-                                print("Problem Record:", pmt)
+                                print("Problem Record:", tax)
                                 raise
-                        
+
                         total_inserted_count += page_insert_count
-                        progress_bar.update(len(permits))
+                        progress_bar.update(len(tax_records))
                         page_num += 1
                         time.sleep(0.1)
                     else:
                         print(f"\nugh, the api call failed. 😤 status code: {response.status_code}")
                         print(response.text)
                         break
-            
+
             conn.commit()
             if progress_bar.n < total_records:
                 progress_bar.update(total_records - progress_bar.n)
             progress_bar.close()
 
-            print(f"\n--- UCity Permits ETL complete! ---")
-            print(f"successfully inserted a grand total of {total_inserted_count} UCity permits. ✨")
+            print(f"\n--- UCity Tax Delinquencies ETL complete! ---")
+            print(f"successfully inserted a grand total of {total_inserted_count} UCity tax delinquency records. ✨")
 
 except Exception as e:
     print(f"😤 a database error occurred: {e}")
