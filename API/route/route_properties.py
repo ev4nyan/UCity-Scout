@@ -67,6 +67,58 @@ def get_property_details(opa_account_num):
             conn.close()
 
 
+# --- 4. ADDRESS SEARCH ENDPOINT ---
+# Search properties by partial address string. Finally, a civilized lookup!
+@app.route('/api/properties/search', methods=['GET'])
+def search_properties_by_address():
+    """
+    Searches the property_intelligence table by partial address string.
+    Case-insensitive. Returns up to 20 matching properties.
+    Usage: /api/properties/search?q=market+st
+    """
+    query_string = request.args.get('q', '').strip()
+
+    if not query_string:
+        return jsonify({"error": "Missing required query parameter 'q'."}), 400
+
+    if len(query_string) < 3:
+        return jsonify({"error": "Search query must be at least 3 characters."}), 400
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT opa_account_num, address, owner_name,
+                       bedrooms, bathrooms, livable_area,
+                       risk_level, trustability_score
+                FROM property_intelligence
+                WHERE address ILIKE %s
+                ORDER BY address
+                LIMIT 20
+                """,
+                (f"%{query_string}%",)
+            )
+
+            rows = cur.fetchall()
+
+            if not rows:
+                return jsonify({"results": [], "count": 0})
+
+            columns = [desc[0] for desc in cur.description]
+            results = [dict(zip(columns, row)) for row in rows]
+
+            return jsonify({"results": results, "count": len(results)})
+
+    except Exception as e:
+        print(f"😤 search blew up! error: {e}")
+        return jsonify({"error": "An internal error occurred during search."}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
 # This is just so you can run the file directly to test it. Hmph.
 if __name__ == '__main__':
     # I'm running it on port 5001 so it doesn't clash with your React app later! See? I think ahead!

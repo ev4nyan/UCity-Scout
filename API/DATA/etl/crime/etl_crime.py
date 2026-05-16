@@ -55,7 +55,7 @@ try:
 
             # --- 3. GET TOTAL COUNT FOR PROGRESS BAR ---
             cutoff_date = (datetime.now() - timedelta(days=LOOKBACK_DAYS)).strftime('%Y-%m-%d')
-            bbox_where = f"lat BETWEEN {UCITY_LAT_MIN} AND {UCITY_LAT_MAX} AND lng BETWEEN {UCITY_LNG_MIN} AND {UCITY_LNG_MAX} AND dispatch_date >= '{cutoff_date}'"
+            bbox_where = f"ST_Y(the_geom) BETWEEN {UCITY_LAT_MIN} AND {UCITY_LAT_MAX} AND ST_X(the_geom) BETWEEN {UCITY_LNG_MIN} AND {UCITY_LNG_MAX} AND dispatch_date >= '{cutoff_date}'"
 
             print(f"let's see how many crime incidents are near University City (since {cutoff_date})...")
             count_query = f"SELECT count(*) FROM incidents_part1_part2 WHERE {bbox_where}"
@@ -79,7 +79,7 @@ try:
             with tqdm(total=total_records, desc="Syncing Crime Incidents", unit=" incident") as progress_bar:
                 while total_inserted_count < total_records:
                     offset = page_num * RECORDS_PER_PAGE
-                    query = f"SELECT dc_key, dc_dist, psa, dispatch_date_time, dispatch_date, dispatch_time, ucr_general, text_general_code, location_block, lat, lng FROM incidents_part1_part2 WHERE {bbox_where} ORDER BY dc_key LIMIT {RECORDS_PER_PAGE} OFFSET {offset}"
+                    query = f"SELECT dc_key, dc_dist, psa, dispatch_date_time, dispatch_date, dispatch_time, ucr_general, text_general_code, location_block, ST_Y(the_geom) AS lat, ST_X(the_geom) AS lng FROM incidents_part1_part2 WHERE {bbox_where} ORDER BY dc_key LIMIT {RECORDS_PER_PAGE} OFFSET {offset}"
 
                     response = requests.get(BASE_API_URL, params={'q': query}, timeout=60)
 

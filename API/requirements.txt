@@ -1,0 +1,9 @@
+psycopg[binary]
+python-dotenv
+tqdm
+requests
+flask
+flask_cors
+pytest
+pytest-mock
+responses
