@@ -64,6 +64,8 @@ def run_etl():
                     tax_total_due NUMERIC,
                     tax_num_years_owed INTEGER,
                     tax_sheriff_sale BOOLEAN,
+                    nearby_crime_count INTEGER,
+                    nearby_violent_crime_count INTEGER,
                     safety_score INTEGER,
                     maintenance_score INTEGER,
                     landlord_score INTEGER,
@@ -79,7 +81,7 @@ def run_etl():
             print("table is ready for property intelligence aggregation!")
 
             # --- 4. AGGREGATION QUERY ---
-            print("aggregating data from properties, violations, permits, licenses, and tax delinquencies...")
+            print("aggregating data from properties, violations, permits, licenses, tax delinquencies, and crime...")
 
             aggregation_query = """
                 WITH base AS (
@@ -114,7 +116,9 @@ def run_etl():
                         CASE WHEN tax.opa_number IS NOT NULL THEN true ELSE false END AS has_tax_delinquency,
                         COALESCE(tax.total_due, 0) AS tax_total_due,
                         COALESCE(tax.num_years_owed, 0) AS tax_num_years_owed,
-                        CASE WHEN tax.sheriff_sale IS NOT NULL AND tax.sheriff_sale != 'N' THEN true ELSE false END AS tax_sheriff_sale
+                        CASE WHEN tax.sheriff_sale IS NOT NULL AND tax.sheriff_sale != 'N' THEN true ELSE false END AS tax_sheriff_sale,
+                        COALESCE(crime.nearby_crime_count, 0) AS nearby_crime_count,
+                        COALESCE(crime.nearby_violent_crime_count, 0) AS nearby_violent_crime_count
                     FROM properties p
                     LEFT JOIN (
                         SELECT opa_account_num,
@@ -143,6 +147,15 @@ def run_etl():
                                sheriff_sale
                         FROM tax_balances
                     ) tax ON p.parcel_number = tax.opa_number
+                    LEFT JOIN LATERAL (
+                        SELECT
+                            COUNT(*) AS nearby_crime_count,
+                            COUNT(*) FILTER (WHERE c.ucr_general IN ('100','200','300','400')) AS nearby_violent_crime_count
+                        FROM crime_incidents c
+                        WHERE p.lat IS NOT NULL AND p.lng IS NOT NULL
+                          AND c.lat BETWEEN p.lat - 0.0009 AND p.lat + 0.0009
+                          AND c.lng BETWEEN p.lng - 0.00117 AND p.lng + 0.00117
+                    ) crime ON true
                     WHERE p.zip_code = '19104'
                 ),
                 scored AS (
@@ -151,6 +164,8 @@ def run_etl():
                         GREATEST(0, LEAST(100,
                             100 - (violation_count * 10) - (open_violation_count * 20)
                                 - (CASE WHEN has_tax_delinquency THEN tax_num_years_owed * 5 ELSE 0 END)
+                                - (LEAST(nearby_crime_count, 20) * 1)
+                                - (nearby_violent_crime_count * 3)
                         )) AS safety_score,
                         GREATEST(0, LEAST(100,
                             CASE exterior_condition
@@ -183,6 +198,7 @@ def run_etl():
                     property_age, exterior_condition, interior_condition,
                     bedrooms, bathrooms, livable_area, has_central_air,
                     has_tax_delinquency, tax_total_due, tax_num_years_owed, tax_sheriff_sale,
+                    nearby_crime_count, nearby_violent_crime_count,
                     safety_score, maintenance_score, landlord_score, trustability_score,
                     risk_level, risk_flags, student_warnings
                 )
@@ -193,6 +209,7 @@ def run_etl():
                     property_age, exterior_condition, interior_condition,
                     bedrooms, bathrooms, livable_area, has_central_air,
                     has_tax_delinquency, tax_total_due, tax_num_years_owed, tax_sheriff_sale,
+                    nearby_crime_count, nearby_violent_crime_count,
                     safety_score, maintenance_score, landlord_score, trustability_score,
                     CASE
                         WHEN trustability_score >= 75 THEN 'LOW'
@@ -208,6 +225,8 @@ def run_etl():
                         CASE WHEN landlord_locality = 'DISTANT'   THEN 'DISTANT_LANDLORD'  ELSE NULL END,
                         CASE WHEN exterior_condition IN ('D','E') THEN 'POOR_CONDITION'     ELSE NULL END,
                         CASE WHEN has_tax_delinquency             THEN 'TAX_DELINQUENT'    ELSE NULL END,
+                        CASE WHEN tax_sheriff_sale                THEN 'SHERIFF_SALE'      ELSE NULL END,
+                        CASE WHEN nearby_crime_count >= 15        THEN 'HIGH_CRIME_AREA'   ELSE NULL END
                         CASE WHEN tax_sheriff_sale                THEN 'SHERIFF_SALE'      ELSE NULL END
                     ], NULL) AS risk_flags,
                     ARRAY_REMOVE(ARRAY[
@@ -216,7 +235,9 @@ def run_etl():
                         CASE WHEN landlord_locality = 'DISTANT'   THEN 'Landlord located outside Philadelphia'  ELSE NULL END,
                         CASE WHEN exterior_condition IN ('D','E') THEN 'Property in poor condition'             ELSE NULL END,
                         CASE WHEN has_tax_delinquency AND tax_num_years_owed >= 3 THEN 'Property has multi-year tax delinquency' ELSE NULL END,
-                        CASE WHEN tax_sheriff_sale                THEN 'Property flagged for sheriff sale'      ELSE NULL END
+                        CASE WHEN tax_sheriff_sale                THEN 'Property flagged for sheriff sale'      ELSE NULL END,
+                        CASE WHEN nearby_violent_crime_count >= 3  THEN 'Violent crime incidents reported nearby' ELSE NULL END,
+                        CASE WHEN nearby_crime_count >= 15        THEN 'High volume of crime near this property' ELSE NULL END
                     ], NULL) AS student_warnings
                 FROM final
             """
